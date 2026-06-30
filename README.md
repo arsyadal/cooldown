@@ -20,7 +20,7 @@ npm run build
 npm link
 ```
 
-Claude Code command:
+Claude Code
 
 ```bash
 mkdir -p ~/.claude/commands
@@ -35,9 +35,25 @@ mkdir -p ~/.claude/commands
 cp skills/claude-cooldown/SKILL.md ~/.claude/commands/cooldown.md
 ```
 
-Pi extension:
+Codex
 
 ```bash
+mkdir -p ~/.codex/skills
+cp -R node_modules/cooldown/skills/codex-cooldown ~/.codex/skills/cooldown
+```
+
+From source:
+
+```bash
+mkdir -p ~/.codex/skills
+cp -R skills/codex-cooldown ~/.codex/skills/cooldown
+```
+
+Pi agent harness
+
+```bash
+pi install git:github.com/arsyadal/cooldown
+# or from source:
 pi install /home/cads/cooldown
 # then inside pi: /reload
 ```
