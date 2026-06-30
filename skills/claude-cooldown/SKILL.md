@@ -2,6 +2,14 @@
 
 Use when the user wants a reminder for Claude Code/Codex/agent CLI usage limits, reset times, or cooldowns.
 
+## Install (Claude Code custom command)
+
+```bash
+mkdir -p ~/.claude/commands
+cp skills/claude-cooldown/SKILL.md ~/.claude/commands/cooldown.md
+# then inside Claude Code: /cooldown
+```
+
 ## Rule
 
 Do not stay alive as the scheduler. Call the `cooldown` CLI; the local daemon owns reminders.

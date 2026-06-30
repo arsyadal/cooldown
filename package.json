@@ -11,7 +11,8 @@
     "cli",
     "ntfy",
     "notification",
-    "cooldown"
+    "cooldown",
+    "pi-package"
   ],
   "bin": {
     "cooldown": "dist/cli.js"
@@ -19,13 +20,20 @@
   "files": [
     "dist",
     "docs",
+    "extensions",
     "skills",
     "README.md",
     "LICENSE"
   ],
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "claude": {
+    "skills": ["./skills/claude-cooldown"]
+  },
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node dist/cli.js __selftest && node dist/cli.js daemon install --dry-run",
+    "test": "npm run build && node dist/cli.js __selftest && d=$(mktemp -d) && COOLDOWN_DIR=$d node dist/cli.js update pi --reset \"1 Jul 2026 1.10\" --usage 94 && COOLDOWN_DIR=$d node dist/cli.js update pi --reset \"1 Jul 2026 1.10\" --usage 89 && test \"$(COOLDOWN_DIR=$d node dist/cli.js status | grep -c '^pi')\" = 1 && COOLDOWN_DIR=$d node dist/cli.js daemon install --dry-run",
     "prepack": "npm run test"
   },
   "devDependencies": {

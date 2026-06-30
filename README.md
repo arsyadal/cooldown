@@ -20,6 +20,28 @@ npm run build
 npm link
 ```
 
+Claude Code command:
+
+```bash
+mkdir -p ~/.claude/commands
+cp node_modules/cooldown/skills/claude-cooldown/SKILL.md ~/.claude/commands/cooldown.md
+# then inside Claude Code: /cooldown
+```
+
+From source:
+
+```bash
+mkdir -p ~/.claude/commands
+cp skills/claude-cooldown/SKILL.md ~/.claude/commands/cooldown.md
+```
+
+Pi extension:
+
+```bash
+pi install /home/cads/cooldown
+# then inside pi: /reload
+```
+
 ## Quick start
 
 Use a long random ntfy topic. Public `ntfy.sh` topics are readable by anyone who guesses the topic name.
@@ -28,7 +50,7 @@ Use a long random ntfy topic. Public `ntfy.sh` topics are readable by anyone who
 cooldown setup ntfy --topic cooldown-$(node -e "console.log(crypto.randomUUID())")
 cooldown test ntfy
 cooldown daemon start
-cooldown remind claude --in 5h
+cooldown update pi --reset "15:30" --usage 94
 ```
 
 Check it:
@@ -53,18 +75,26 @@ cooldown setup telegram --token <token> --chat-id <id>
 
 cooldown daemon start|stop|status|install|uninstall
 
+cooldown update pi --reset "1 Jul 2026 1.10" --usage 89
 cooldown remind claude --in 5h
 cooldown remind codex --at "15:30"
 cooldown cancel <event_id>
 
 cooldown run claude
 cooldown run codex
+cooldown run pi
 cooldown run claude -- --model sonnet
 
 cooldown status
 cooldown history
 cooldown doctor
 cooldown test ntfy|telegram|desktop
+
+# inside pi after installing the package:
+/cooldown
+
+# inside Claude Code after installing the skill:
+/cooldown
 ```
 
 ## Notifications
@@ -92,6 +122,7 @@ Cooldown stores local reminder metadata in `~/.cooldown`:
 
 - provider
 - reset time
+- detected usage percentage when provider output includes it
 - status
 - notification config
 

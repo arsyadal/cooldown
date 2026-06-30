@@ -4,9 +4,10 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
 
-const dir = join(homedir(), ".cooldown");
+const dir = process.env.COOLDOWN_DIR ?? join(homedir(), ".cooldown");
 const configFile = join(dir, "config.json");
 const eventsFile = join(dir, "events.json");
+const stateFile = join(dir, "state.json");
 const pidFile = join(dir, "cooldown.pid");
 const logFile = join(dir, "cooldown.log");
 const cliPath = process.argv[1];
@@ -20,7 +21,17 @@ type Event = {
   createdAt: string;
   source?: "manual" | "detected";
   rawMatch?: string;
+  usagePercent?: number;
   notifiedAt?: string;
+};
+
+type ProviderState = {
+  provider: string;
+  usagePercent?: number;
+  resetAt?: string;
+  updatedAt: string;
+  source?: "manual" | "detected";
+  rawMatch?: string;
 };
 
 function ensureDir() {
@@ -44,10 +55,14 @@ function log(message: string) {
 
 function parseTime(value: string): Date {
   const now = new Date();
-  const input = value.trim().replace(/[,.;]+$/, "");
-  const duration = input.match(/^(?:in\s*)?(?:(\d+)\s*(?:h|hour|hours))?\s*(?:(\d+)\s*(?:m|min|minute|minutes))?$/i);
-  if (duration?.[0].trim() && (duration[1] || duration[2])) {
-    return new Date(now.getTime() + Number(duration[1] ?? 0) * 3600000 + Number(duration[2] ?? 0) * 60000);
+  let input = value.trim().replace(/[,.;]+$/, "");
+  input = input.replace(/\b(Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agu|Ags|Sep|Okt|Nov|Des)\b/gi, month => ({
+    jan: "Jan", feb: "Feb", mar: "Mar", apr: "Apr", mei: "May", jun: "Jun", jul: "Jul", agu: "Aug", ags: "Aug", sep: "Sep", okt: "Oct", nov: "Nov", des: "Dec"
+  }[month.toLowerCase()] ?? month));
+  input = input.replace(/(\d{1,2})\.(\d{2})(?:\s*(am|pm))?$/i, "$1:$2$3");
+  const duration = input.match(/^(?:in\s*)?(?:(\d+)\s*(?:h|hour|hours))?\s*(?:(\d+)\s*(?:m|min|minute|minutes))?\s*(?:(\d+)\s*(?:s|sec|second|seconds))?$/i);
+  if (duration?.[0].trim() && (duration[1] || duration[2] || duration[3])) {
+    return new Date(now.getTime() + Number(duration[1] ?? 0) * 3600000 + Number(duration[2] ?? 0) * 60000 + Number(duration[3] ?? 0) * 1000);
   }
 
   const tomorrow = input.match(/^tomorrow(?:\s+at)?\s+(.+)$/i);
@@ -80,6 +95,19 @@ function parseClock(value: string, now: Date): Date | undefined {
   d.setHours(hour, minute, 0, 0);
   if (d <= now) d.setDate(d.getDate() + 1);
   return d;
+}
+
+function detectUsagePercent(text: string): number | undefined {
+  if (!/(usage|limit|quota|remaining|used)/i.test(text)) return;
+  const patterns = [
+    /(?:usage|quota|limit|used)[^\n%]{0,80}?(\d{1,3})\s*%/i,
+    /(\d{1,3})\s*%[^\n]{0,80}?(?:usage|quota|limit|used|tersisa)/i,
+    /(\d{1,3})\s*%/
+  ];
+  for (const pattern of patterns) {
+    const value = Number(text.match(pattern)?.[1]);
+    if (Number.isFinite(value) && value >= 0 && value <= 100) return value;
+  }
 }
 
 function detectReset(text: string): Date | undefined {
@@ -284,7 +312,21 @@ function setupTelegram(args: string[]) {
   console.log("Telegram configured.");
 }
 
-function saveReminder(provider: string, resetAt: Date, source: Event["source"] = "manual", rawMatch?: string) {
+function saveProviderState(provider: string, state: Omit<Partial<ProviderState>, "provider" | "updatedAt">) {
+  const states = readJson<ProviderState[]>(stateFile, []);
+  const existing = states.find(s => s.provider === provider);
+  const next: ProviderState = {
+    ...(existing ?? { provider }),
+    ...state,
+    provider,
+    updatedAt: new Date().toISOString()
+  };
+  if (existing) Object.assign(existing, next);
+  else states.push(next);
+  writeJson(stateFile, states);
+}
+
+function saveReminder(provider: string, resetAt: Date, source: Event["source"] = "manual", rawMatch?: string, usagePercent?: number) {
   const events = readJson<Event[]>(eventsFile, []);
   const event: Event = {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
@@ -293,19 +335,31 @@ function saveReminder(provider: string, resetAt: Date, source: Event["source"] =
     status: "pending",
     createdAt: new Date().toISOString(),
     source,
-    rawMatch
+    rawMatch,
+    usagePercent
   };
+  for (const old of events) {
+    if (old.provider === provider && old.status === "pending") old.status = "cancelled";
+  }
   events.push(event);
   writeJson(eventsFile, events);
+  saveProviderState(provider, { resetAt: resetAt.toISOString(), usagePercent, source, rawMatch });
   console.log(`${provider} cooldown saved for ${resetAt.toLocaleString()}.`);
   if (!existsSync(pidFile)) console.log("Reminder saved, but daemon may not be running. Start it with: cooldown daemon start");
 }
 
 function remind(args: string[]) {
   const provider = args[0];
-  const time = flag(args, "--in") ?? flag(args, "--at");
-  if (!provider || !time) throw new Error("Usage: cooldown remind <provider> --in 5h | --at 15:30");
-  saveReminder(provider, parseTime(time), "manual");
+  const time = flag(args, "--in") ?? flag(args, "--at") ?? flag(args, "--reset");
+  const usageRaw = flag(args, "--usage");
+  const usagePercent = usageRaw === undefined ? undefined : Number(usageRaw.replace(/%$/, ""));
+  if (!provider || (!time && usagePercent === undefined)) throw new Error("Usage: cooldown update <provider> [--reset 15:30] [--usage 94]");
+  if (usagePercent !== undefined && (!Number.isFinite(usagePercent) || usagePercent < 0 || usagePercent > 100)) throw new Error("--usage must be 0-100");
+  if (!time) {
+    saveProviderState(provider, { usagePercent, source: "manual" });
+    return console.log(`${provider} cooldown usage saved${usagePercent === undefined ? "" : `: ${usagePercent}%`}.`);
+  }
+  saveReminder(provider, parseTime(time), "manual", undefined, usagePercent);
 }
 
 function runProvider(args: string[]) {
@@ -313,7 +367,7 @@ function runProvider(args: string[]) {
   if (!provider) throw new Error("Usage: cooldown run <provider> [-- <command args>]");
   const separator = args.indexOf("--");
   const commandArgs = separator >= 0 ? args.slice(separator + 1) : [];
-  const command = provider === "claude" ? "claude" : provider === "codex" ? "codex" : provider;
+  const command = provider === "claude" ? "claude" : provider === "codex" ? "codex" : provider === "pi" ? "pi" : provider;
   const child = spawn(command, commandArgs, { stdio: ["inherit", "pipe", "pipe"] });
   let saved = false;
   let buffer = "";
@@ -321,10 +375,14 @@ function runProvider(args: string[]) {
   const scan = (text: string) => {
     if (saved) return;
     buffer = `${buffer}${text}`.slice(-2000);
+    const usagePercent = detectUsagePercent(buffer);
     const resetAt = detectReset(buffer);
+    if (usagePercent !== undefined || resetAt) {
+      saveProviderState(provider, { usagePercent, resetAt: resetAt?.toISOString(), source: "detected", rawMatch: buffer.slice(-500) });
+    }
     if (!resetAt) return;
     saved = true;
-    saveReminder(provider, resetAt, "detected", buffer.slice(-500));
+    saveReminder(provider, resetAt, "detected", buffer.slice(-500), usagePercent);
   };
 
   child.stdout?.on("data", (chunk: Buffer) => {
@@ -343,12 +401,51 @@ function runProvider(args: string[]) {
 
 function status() {
   const events = readJson<Event[]>(eventsFile, []).filter(e => e.status === "pending");
-  if (!events.length) return console.log("No pending cooldowns.");
-  console.log("Provider\tReset At\tRemaining");
+  const states = readJson<ProviderState[]>(stateFile, []);
+  if (!events.length && !states.length) return console.log("No pending cooldowns or detected usage.");
+  console.log("Provider\tUsage\tReset At\tRemaining");
+  const shown = new Set<string>();
   for (const event of events) {
-    const ms = Math.max(0, new Date(event.resetAt).getTime() - Date.now());
-    console.log(`${event.provider}\t${new Date(event.resetAt).toLocaleString()}\t${formatMs(ms)}`);
+    const state = states.find(s => s.provider === event.provider);
+    const resetAt = new Date(event.resetAt);
+    const ms = Math.max(0, resetAt.getTime() - Date.now());
+    const usage = event.usagePercent ?? state?.usagePercent;
+    console.log(`${event.provider}\t${usage === undefined ? "unknown" : `${usage}%`}\t${resetAt.toLocaleString()}\t${formatMs(ms)}`);
+    shown.add(event.provider);
   }
+  for (const state of states.filter(s => !shown.has(s.provider))) {
+    const resetAt = state.resetAt ? new Date(state.resetAt) : undefined;
+    const ms = resetAt ? Math.max(0, resetAt.getTime() - Date.now()) : undefined;
+    console.log(`${state.provider}\t${state.usagePercent === undefined ? "unknown" : `${state.usagePercent}%`}\t${resetAt ? resetAt.toLocaleString() : "unknown"}\t${ms === undefined ? "unknown" : formatMs(ms)}`);
+  }
+}
+
+function statusline() {
+  const events = readJson<Event[]>(eventsFile, []).filter(e => e.status === "pending");
+  const states = readJson<ProviderState[]>(stateFile, []);
+  const shown = new Set<string>();
+  const lines: string[] = [];
+  for (const item of events) {
+    const state = states.find(s => s.provider === item.provider);
+    const usage = item.usagePercent ?? state?.usagePercent;
+    const resetAt = new Date(item.resetAt);
+    const remaining = formatMs(Math.max(0, resetAt.getTime() - Date.now()));
+    const usageText = usage === undefined ? "?" : `${usage}%`;
+    const resetText = resetAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const source = item.source ?? state?.source;
+    const freshness = source === "manual" ? "manual" : "auto";
+    lines.push(`⏳ cooldown: ${item.provider} ${usageText} reset ${resetText} (${remaining}) ${freshness}`);
+    shown.add(item.provider);
+  }
+  for (const state of states.filter(s => !shown.has(s.provider) && (s.resetAt || s.usagePercent !== undefined))) {
+    const reset = state.resetAt ? new Date(state.resetAt) : undefined;
+    const remaining = reset ? formatMs(Math.max(0, reset.getTime() - Date.now())) : "?";
+    const usageText = state.usagePercent === undefined ? "?" : `${state.usagePercent}%`;
+    const resetText = reset ? reset.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "?";
+    const freshness = state.source === "manual" ? "manual" : "stale";
+    lines.push(`⏳ cooldown: ${state.provider} ${usageText} reset ${resetText} (${remaining}) ${freshness}`);
+  }
+  if (lines.length) console.log(lines.join("\n"));
 }
 
 function history() {
@@ -388,6 +485,7 @@ function doctor() {
     ["desktop", desktopCommand ? hasCommand(desktopCommand) : true, desktopCommand ?? "skipped on Windows"],
     ["claude", hasCommand("claude"), hasCommand("claude") ? "found" : "not found"],
     ["codex", hasCommand("codex"), hasCommand("codex") ? "found" : "not found"],
+    ["pi", hasCommand("pi"), hasCommand("pi") ? "found" : "not found"],
     ["pending reminders", true, String(pending)]
   ];
 
@@ -411,10 +509,13 @@ function selfTest() {
   const cases = [
     "1h",
     "in 5 minutes",
+    "60s",
     "2h 30m",
     "23:59",
     "2:30 PM",
-    "tomorrow at 9 AM"
+    "tomorrow at 9 AM",
+    "1 Jul 2026 1.10",
+    "1 Okt 2026 1.10"
   ];
   for (const value of cases) {
     const parsed = parseTime(value);
@@ -422,7 +523,7 @@ function selfTest() {
   }
 
   const messages = [
-    "usage limit reached. try again in 5 minutes",
+    "usage 83% - limit reached. try again in 5 minutes",
     "rate limit hit, try again at 23:59",
     "blocked until tomorrow at 9 AM",
     "cooldown until 2:30 PM",
@@ -432,6 +533,7 @@ function selfTest() {
     const detected = detectReset(message);
     if (!detected || detected.getTime() <= now) throw new Error(`detect failed: ${message}`);
   }
+  if (detectUsagePercent("Limit penggunaan 5 jam\n89%\ntersisa") !== 89) throw new Error("usage percent detect failed");
   console.log("ok");
 }
 
@@ -447,9 +549,10 @@ async function main() {
     if (cmd === "daemon" && sub === "status") return daemonStatus();
     if (cmd === "daemon" && sub === "install") return daemonInstall(rest);
     if (cmd === "daemon" && sub === "uninstall") return daemonUninstall();
-    if (cmd === "remind") return remind([sub, ...rest].filter(Boolean));
+    if (cmd === "remind" || cmd === "update") return remind([sub, ...rest].filter(Boolean));
     if (cmd === "run") return runProvider([sub, ...rest].filter(Boolean));
     if (cmd === "status") return status();
+    if (cmd === "statusline") return statusline();
     if (cmd === "history") return history();
     if (cmd === "cancel") return cancel(sub);
     if (cmd === "doctor") return doctor();
@@ -460,8 +563,9 @@ async function main() {
   cooldown setup ntfy --topic <topic> [--server https://ntfy.sh]
   cooldown setup telegram --token <token> --chat-id <id>
   cooldown daemon start|stop|status|install|uninstall
-  cooldown remind <provider> --in 5h | --at 15:30
-  cooldown run claude|codex [-- provider args]
+  cooldown update <provider> [--reset 15:30] [--usage 94]
+  cooldown remind <provider> --in 5h | --at 15:30 [--usage 94]
+  cooldown run claude|codex|pi [-- provider args]
   cooldown status
   cooldown history
   cooldown cancel <event_id>
