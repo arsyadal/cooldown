@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.cooldown/
+.tmp-*/
+.tmp-ntfy-topic
+nul
+*.log
+.DS_Store
+.env
+.env.*

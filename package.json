@@ -1,0 +1,35 @@
+{
+  "name": "cooldown",
+  "version": "0.1.0",
+  "description": "Get notified when your AI coding agent is ready again.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "ai-agent",
+    "cli",
+    "ntfy",
+    "notification",
+    "cooldown"
+  ],
+  "bin": {
+    "cooldown": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node dist/cli.js __selftest && node dist/cli.js daemon install --dry-run",
+    "prepack": "npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "typescript": "latest"
+  }
+}
