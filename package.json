@@ -18,9 +18,15 @@
     "cooldown": "dist/cli.js"
   },
   "files": [
+    ".agents",
+    ".claude-plugin",
+    ".codex",
+    "commands",
     "dist",
     "docs",
     "extensions",
+    "hooks",
+    "plugins",
     "skills",
     "README.md",
     "LICENSE"
@@ -29,7 +35,8 @@
     "extensions": ["./extensions"]
   },
   "claude": {
-    "skills": ["./skills/claude-cooldown"]
+    "skills": ["./skills/claude-cooldown"],
+    "commands": ["./commands"]
   },
   "scripts": {
     "build": "tsc",

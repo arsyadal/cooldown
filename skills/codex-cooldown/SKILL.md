@@ -1,10 +1,15 @@
+---
+name: codex-cooldown
+description: Use when the user asks for Codex cooldown reminders, reset timing, notification setup, or cooldown status.
+---
+
 # Cooldown
 
-Use when the user wants Codex CLI usage-limit, reset, or cooldown notifications.
+Use when the user needs Codex cooldown reminders.
 
 ## Rule
 
-Cooldown reminders must be stored through the `cooldown` CLI so the daemon can notify after the terminal closes.
+Call the `cooldown` CLI. The daemon owns reminders.
 
 ## Commands
 
@@ -19,9 +24,7 @@ cooldown status
 cooldown history
 ```
 
-## Auto-detect wrapper
-
-For future Codex sessions, suggest:
+## Auto-detect
 
 ```bash
 cooldown run codex

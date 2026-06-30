@@ -1,10 +1,15 @@
+---
+name: pi-cooldown
+description: Use when the user asks for Pi agent cooldown reminders, reset timing, notification setup, or cooldown status.
+---
+
 # Cooldown
 
-Use when the user wants Pi/Claude/Codex agent CLI cooldown notifications.
+Use when the user needs Pi cooldown reminders.
 
 ## Rule
 
-This skill is only an adapter. Call `cooldown`; do not implement scheduling inside the agent.
+Call the `cooldown` CLI. The daemon owns reminders.
 
 ## Commands
 
@@ -13,12 +18,14 @@ cooldown doctor
 cooldown setup ntfy --topic <secret-topic>
 cooldown daemon start
 cooldown daemon install
-cooldown remind claude --in 5h
-cooldown remind codex --at "15:30"
+cooldown remind pi --in 5h
+cooldown remind pi --at "15:30"
 cooldown status
 cooldown history
 ```
 
-## Reminder
+## Auto-detect
 
-If the terminal closes, the skill stops. The Cooldown daemon keeps running and sends ntfy/desktop notifications.
+```bash
+cooldown run pi
+```

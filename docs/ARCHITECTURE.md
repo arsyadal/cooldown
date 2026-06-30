@@ -14,6 +14,18 @@ If a terminal closes, Claude/Codex/Pi and their skills stop running. The daemon 
 
 ## Components
 
+### Repo shape
+
+Keep one core and thin adapters:
+
+```txt
+src/          # shared CLI logic
+extensions/    # pi integration only
+skills/        # one folder per host, no framework layer
+```
+
+If a new host is needed, add one skill folder and point it at the same CLI.
+
 ### CLI
 
 User-facing command interface.
@@ -58,6 +70,7 @@ MVP:
 ### Skills/plugins
 
 Agent integrations only call the CLI. They do not run forever.
+They should stay thin and reuse the same core commands, not duplicate scheduler logic.
 
 Example:
 

@@ -1,0 +1,39 @@
+{
+  "name": "cooldown",
+  "version": "0.1.0",
+  "description": "Cooldown reminders for Codex and other agent CLIs.",
+  "author": {
+    "name": "arsyadal",
+    "url": "https://github.com/arsyadal"
+  },
+  "homepage": "https://github.com/arsyadal/cooldown",
+  "repository": "https://github.com/arsyadal/cooldown",
+  "license": "MIT",
+  "keywords": [
+    "cooldown",
+    "codex",
+    "claude-code",
+    "pi",
+    "notification"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Cooldown",
+    "shortDescription": "Get notified when agent cooldowns are over.",
+    "longDescription": "Local-first cooldown reminders for Codex, Claude Code, Pi, and other agent terminals. The plugin delegates scheduling to the cooldown CLI daemon.",
+    "developerName": "arsyadal",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ],
+    "websiteURL": "https://github.com/arsyadal/cooldown",
+    "privacyPolicyURL": "https://github.com/arsyadal/cooldown/blob/main/docs/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/arsyadal/cooldown/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Show my cooldown status.",
+      "Remind me when Codex resets.",
+      "Set up cooldown notifications."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

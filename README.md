@@ -8,9 +8,13 @@ Cooldown does **not** bypass limits, scrape accounts, or store prompts/source co
 
 ## Install
 
+Recommended for **Windows / macOS / Linux**:
+
 ```bash
 npm install -g cooldown
 ```
+
+No `curl` needed for the normal install path.
 
 From source:
 
@@ -20,34 +24,41 @@ npm run build
 npm link
 ```
 
-Claude Code
+Claude Code plugin
 
 ```bash
-mkdir -p ~/.claude/commands
-cp node_modules/cooldown/skills/claude-cooldown/SKILL.md ~/.claude/commands/cooldown.md
-# then inside Claude Code: /cooldown
+/plugin marketplace add arsyadal/cooldown
+/plugin install cooldown@cooldown
+```
+
+Send those as two separate Claude Code prompts. From source:
+
+```bash
+/plugin marketplace add /path/to/cooldown
+/plugin install cooldown@cooldown
+```
+
+Claude Code desktop has no `/plugin` command. Install from the UI: Customize, personal plugins, add from repository, then enter the repo URL.
+
+The Claude Code plugin has two tiny Node.js lifecycle hooks. If `node` or `cooldown` is not on the non-interactive shell PATH, the `/cooldown` command and skill still work and the always-on status hook stays quiet.
+
+Codex plugin
+
+```bash
+codex plugin marketplace add arsyadal/cooldown
+codex plugin add cooldown@cooldown-repo
 ```
 
 From source:
 
 ```bash
-mkdir -p ~/.claude/commands
-cp skills/claude-cooldown/SKILL.md ~/.claude/commands/cooldown.md
+codex plugin marketplace add /path/to/cooldown
+codex plugin add cooldown@cooldown-repo
 ```
 
-Codex
+In the Codex desktop app, open `/plugins`, select the Cooldown marketplace, install Cooldown, then open `/hooks`, review and trust the lifecycle hooks, and start a new thread.
 
-```bash
-mkdir -p ~/.codex/skills
-cp -R node_modules/cooldown/skills/codex-cooldown ~/.codex/skills/cooldown
-```
-
-From source:
-
-```bash
-mkdir -p ~/.codex/skills
-cp -R skills/codex-cooldown ~/.codex/skills/cooldown
-```
+The Codex plugin has two tiny Node.js lifecycle hooks. If `node` or `cooldown` is not on the non-interactive shell PATH, the skill still works and the always-on status hook stays quiet.
 
 Pi agent harness
 
@@ -106,10 +117,13 @@ cooldown history
 cooldown doctor
 cooldown test ntfy|telegram|desktop
 
-# inside pi after installing the package:
+# inside Claude Code after installing the plugin:
 /cooldown
 
-# inside Claude Code after installing the skill:
+# inside Codex after installing the plugin:
+Ask "cooldown" or "show my cooldown status"
+
+# inside pi after installing the package:
 /cooldown
 ```
 

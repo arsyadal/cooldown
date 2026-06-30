@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cooldown",
+  "description": "Cooldown reminders for Claude Code, Codex, Pi, and other agent terminals.",
+  "owner": {
+    "name": "arsyadal",
+    "url": "https://github.com/arsyadal"
+  },
+  "plugins": [
+    {
+      "name": "cooldown",
+      "description": "Get notified when your AI coding agent cooldown is over.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "cooldown-repo",
+  "interface": {
+    "displayName": "Cooldown Repo"
+  },
+  "plugins": [
+    {
+      "name": "cooldown",
+      "source": {
+        "source": "local",
+        "path": "./plugins/cooldown"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

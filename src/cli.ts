@@ -506,6 +506,7 @@ function formatMs(ms: number) {
 
 function selfTest() {
   const now = Date.now();
+  const futureYear = new Date().getFullYear() + 1;
   const cases = [
     "1h",
     "in 5 minutes",
@@ -514,8 +515,8 @@ function selfTest() {
     "23:59",
     "2:30 PM",
     "tomorrow at 9 AM",
-    "1 Jul 2026 1.10",
-    "1 Okt 2026 1.10"
+    `1 Jul ${futureYear} 1.10`,
+    `1 Okt ${futureYear} 1.10`
   ];
   for (const value of cases) {
     const parsed = parseTime(value);
