@@ -11,7 +11,7 @@ Cooldown does **not** bypass limits, scrape accounts, or store prompts/source co
 Recommended for **Windows / macOS / Linux**:
 
 ```bash
-npm install -g cooldown
+npm install -g @arsyadal/cooldown
 ```
 
 No `curl` needed for the normal install path.

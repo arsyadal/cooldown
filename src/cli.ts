@@ -155,7 +155,19 @@ function desktop(text: string) {
   const p = platform();
   if (p === "darwin") return void spawn("osascript", ["-e", `display notification ${JSON.stringify(text)} with title "Cooldown"`]);
   if (p === "linux") return void spawn("notify-send", ["Cooldown", text]);
-  if (p === "win32") return log(`desktop notification skipped on Windows: ${text}`);
+  if (p === "win32") {
+    // Text travels via env var so it never touches the PowerShell command line.
+    const script = `[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null;` +
+      `$t = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);` +
+      `$x = $t.GetElementsByTagName('text');` +
+      `$x.Item(0).AppendChild($t.CreateTextNode('Cooldown')) | Out-Null;` +
+      `$x.Item(1).AppendChild($t.CreateTextNode($env:COOLDOWN_MSG)) | Out-Null;` +
+      `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Cooldown').Show([Windows.UI.Notifications.ToastNotification]::new($t))`;
+    return void spawn("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], {
+      env: { ...process.env, COOLDOWN_MSG: text },
+      stdio: "ignore"
+    });
+  }
 }
 
 async function notify(text: string) {
@@ -327,7 +339,9 @@ function saveProviderState(provider: string, state: Omit<Partial<ProviderState>,
 }
 
 function saveReminder(provider: string, resetAt: Date, source: Event["source"] = "manual", rawMatch?: string, usagePercent?: number) {
-  const events = readJson<Event[]>(eventsFile, []);
+  // ponytail: 30-day retention for resolved events keeps events.json bounded
+  const cutoff = Date.now() - 30 * 86400000;
+  const events = readJson<Event[]>(eventsFile, []).filter(e => e.status === "pending" || new Date(e.createdAt).getTime() > cutoff);
   const event: Event = {
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     provider,
@@ -368,8 +382,9 @@ function runProvider(args: string[]) {
   const separator = args.indexOf("--");
   const commandArgs = separator >= 0 ? args.slice(separator + 1) : [];
   const command = provider === "claude" ? "claude" : provider === "codex" ? "codex" : provider === "pi" ? "pi" : provider;
-  const child = spawn(command, commandArgs, { stdio: ["inherit", "pipe", "pipe"] });
+  const child = spawn(command, commandArgs, { stdio: ["inherit", "pipe", "pipe"], shell: platform() === "win32" });
   let saved = false;
+  let limitSeen = false;
   let buffer = "";
 
   const scan = (text: string) => {
@@ -378,6 +393,7 @@ function runProvider(args: string[]) {
     const usagePercent = detectUsagePercent(buffer);
     const resetAt = detectReset(buffer);
     if (usagePercent !== undefined || resetAt) {
+      limitSeen = true;
       saveProviderState(provider, { usagePercent, resetAt: resetAt?.toISOString(), source: "detected", rawMatch: buffer.slice(-500) });
     }
     if (!resetAt) return;
@@ -395,7 +411,12 @@ function runProvider(args: string[]) {
     process.stderr.write(text);
     scan(text);
   });
-  child.on("exit", code => { process.exitCode = code ?? 0; });
+  child.on("exit", code => {
+    process.exitCode = code ?? 0;
+    if (limitSeen && !saved) {
+      console.error(`Limit detected, but reset time was not found.\nUse: cooldown update ${provider} --reset "1 Jul 2026 1.10" --usage 89`);
+    }
+  });
   child.on("error", error => { console.error(error.message); process.exitCode = 1; });
 }
 
@@ -535,6 +556,8 @@ function selfTest() {
     if (!detected || detected.getTime() <= now) throw new Error(`detect failed: ${message}`);
   }
   if (detectUsagePercent("Limit penggunaan 5 jam\n89%\ntersisa") !== 89) throw new Error("usage percent detect failed");
+  if (detectUsagePercent("hello world 50%") !== undefined) throw new Error("usage percent should not match without a usage/limit/quota keyword");
+  if (detectReset("hello world 5pm") !== undefined) throw new Error("reset should not match without a limit/reset/cooldown keyword");
   console.log("ok");
 }
 

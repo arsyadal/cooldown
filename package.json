@@ -1,6 +1,6 @@
 {
-  "name": "cooldown",
-  "version": "0.1.0",
+  "name": "@arsyadal/cooldown",
+  "version": "0.1.1",
   "description": "Get notified when your AI coding agent is ready again.",
   "type": "module",
   "license": "MIT",
@@ -32,15 +32,21 @@
     "LICENSE"
   ],
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": [
+      "./extensions"
+    ]
   },
   "claude": {
-    "skills": ["./skills/claude-cooldown"],
-    "commands": ["./commands"]
+    "skills": [
+      "./skills/claude-cooldown"
+    ],
+    "commands": [
+      "./commands"
+    ]
   },
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node dist/cli.js __selftest && d=$(mktemp -d) && COOLDOWN_DIR=$d node dist/cli.js update pi --reset \"1 Jul 2026 1.10\" --usage 94 && COOLDOWN_DIR=$d node dist/cli.js update pi --reset \"1 Jul 2026 1.10\" --usage 89 && test \"$(COOLDOWN_DIR=$d node dist/cli.js status | grep -c '^pi')\" = 1 && COOLDOWN_DIR=$d node dist/cli.js daemon install --dry-run",
+    "test": "npm run build && node scripts/selftest.mjs",
     "prepack": "npm run test"
   },
   "devDependencies": {
